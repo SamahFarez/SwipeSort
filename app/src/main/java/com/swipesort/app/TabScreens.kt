@@ -58,12 +58,82 @@ fun AlbumsTab() {
                     item { SmartCard("Reels 9:16", reelCount, Icons.Default.Movie, listOf(Palette.Blue, Palette.Pink)) { nav.push(Route.SmartRoute(Kind.REELS)) } }
                 }
             }
+            item(span = { GridItemSpan(maxLineSpan) }) {
+                SmartAlbumsRow()
+            }
             items(albums.size, key = { albums[it].bucketId }) { i ->
                 val a = albums[i]
                 AlbumCard(a) { nav.push(Route.AlbumRoute(a.bucketId)) }
             }
         }
     }
+}
+
+/** Saved filters + built-in metadata albums (Screenshots, Night shots, Panoramas…). */
+@Composable
+private fun SmartAlbumsRow() {
+    val nav = LocalNav.current
+    val ctx = LocalContext.current
+    val items = Library.items
+    val places = Library.places
+    val cameras = Library.cameras
+    val saved = Presets.list
+    var deleting by remember { mutableStateOf<String?>(null) }
+    val all = remember(saved) { saved.map { it to true } + Presets.builtIn.map { it to false } }
+    val counts = remember(all, items, places, cameras) { all.map { (p, _) -> Meta.apply(items, p.filters, places, cameras).size } }
+
+    Column {
+        SmallCapsLabel("Smart albums · from photo info", Modifier.padding(start = 2.dp, bottom = 8.dp))
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(all.size) { i ->
+                val (preset, isSaved) = all[i]
+                val count = counts.getOrElse(i) { 0 }
+                if (!isSaved && count == 0) return@items
+                Row(
+                    Modifier.clip(RoundedCornerShape(18.dp))
+                        .background(if (isSaved) BrandGradientDeep else Brush.linearGradient(listOf(Color.White, Color.White)))
+                        .combinedClickableCompat(
+                            onClick = { nav.push(Route.FilterRoute(preset.name, preset.filters, isSaved)) },
+                            onLongClick = { if (isSaved) deleting = preset.name }
+                        )
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(if (isSaved) Icons.Default.AutoAwesome else Icons.Default.Bolt, null,
+                        tint = if (isSaved) Color.White else Palette.PinkDeep, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(preset.name, color = if (isSaved) Color.White else Palette.Ink, fontWeight = FontWeight.Medium, fontSize = 14.sp)
+                    Spacer(Modifier.width(6.dp))
+                    Text("$count", color = if (isSaved) Color.White.copy(alpha = 0.8f) else Palette.InkSoft, fontSize = 12.sp)
+                }
+            }
+        }
+    }
+
+    deleting?.let { name ->
+        AlertDialog(
+            onDismissRequest = { deleting = null },
+            containerColor = Color.White,
+            shape = RoundedCornerShape(30.dp),
+            title = { Text("Delete \"$name\"?", fontFamily = DisplayFont, color = Palette.Ink) },
+            text = { Text("Only the smart album is removed. Your photos stay.", color = Palette.InkSoft) },
+            confirmButton = { TextButton(onClick = { Presets.delete(ctx, name); deleting = null }) { Text("Delete", color = Palette.Rose) } },
+            dismissButton = { TextButton(onClick = { deleting = null }) { Text("Cancel", color = Palette.InkSoft) } }
+        )
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+private fun Modifier.combinedClickableCompat(onClick: () -> Unit, onLongClick: () -> Unit): Modifier =
+    this.combinedClickable(onClick = onClick, onLongClick = onLongClick)
+
+@Composable
+fun FilterDetail(title: String, filters: Filters) {
+    val nav = LocalNav.current
+    BrowseScreen(
+        title = title, subtitle = null, items = Library.items, defaultGroup = GroupBy.MONTH,
+        onBack = { nav.pop() }, stateKey = "filter_$title", initialFilters = filters
+    )
 }
 
 @Composable

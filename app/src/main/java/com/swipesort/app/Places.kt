@@ -27,40 +27,45 @@ data class Place(val country: String?, val region: String?, val city: String?) {
 data class GeoPoint(val lat: Double, val lng: Double)
 
 /** Small SQLite cache so GPS reading & place names only happen once per file. */
-class PlaceDb(ctx: Context) : SQLiteOpenHelper(ctx, "places.db", null, 1) {
+private const val LOC_TABLE =
+    "CREATE TABLE loc(id INTEGER PRIMARY KEY, modified INTEGER, lat REAL, lng REAL, has INTEGER, camera TEXT)"
 
-    data class Loc(val modified: Long, val point: GeoPoint?)
+class PlaceDb(ctx: Context) : SQLiteOpenHelper(ctx, "places.db", null, 2) {
+
+    data class Loc(val modified: Long, val point: GeoPoint?, val camera: String?)
 
     override fun onCreate(db: SQLiteDatabase) {
-        db.execSQL("CREATE TABLE loc(id INTEGER PRIMARY KEY, modified INTEGER, lat REAL, lng REAL, has INTEGER)")
+        db.execSQL(LOC_TABLE)
         db.execSQL("CREATE TABLE geo(k TEXT PRIMARY KEY, country TEXT, region TEXT, city TEXT)")
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
+        // v2 adds the camera model: re-read files, keep the place names we already looked up
         db.execSQL("DROP TABLE IF EXISTS loc")
-        db.execSQL("DROP TABLE IF EXISTS geo")
-        onCreate(db)
+        db.execSQL(LOC_TABLE)
     }
 
     fun allLocs(): Map<Long, Loc> {
         val out = HashMap<Long, Loc>()
-        readableDatabase.rawQuery("SELECT id, modified, lat, lng, has FROM loc", null).use { c ->
+        readableDatabase.rawQuery("SELECT id, modified, lat, lng, has, camera FROM loc", null).use { c ->
             while (c.moveToNext()) {
                 val p = if (c.getInt(4) == 1) GeoPoint(c.getDouble(2), c.getDouble(3)) else null
-                out[c.getLong(0)] = Loc(c.getLong(1), p)
+                out[c.getLong(0)] = Loc(c.getLong(1), p, if (c.isNull(5)) null else c.getString(5))
             }
         }
         return out
     }
 
-    fun putLocs(rows: List<Triple<Long, Long, GeoPoint?>>) {
+    fun putLocs(rows: List<Pair<Long, Loc>>) {
         val db = writableDatabase
         db.beginTransaction()
         try {
-            rows.forEach { (id, modified, p) ->
+            rows.forEach { (id, loc) ->
+                val p = loc.point
                 val v = ContentValues().apply {
-                    put("id", id); put("modified", modified)
+                    put("id", id); put("modified", loc.modified)
                     put("lat", p?.lat ?: 0.0); put("lng", p?.lng ?: 0.0); put("has", if (p != null) 1 else 0)
+                    put("camera", loc.camera)
                 }
                 db.insertWithOnConflict("loc", null, v, SQLiteDatabase.CONFLICT_REPLACE)
             }
@@ -91,14 +96,16 @@ object PlaceReader {
     /** ~1 km grid key, so nearby photos share one place lookup. */
     fun key(p: GeoPoint): String = "%.2f,%.2f".format(Locale.US, p.lat, p.lng)
 
-    /** Reads the GPS position stored inside the photo/video, or null. */
-    fun readPoint(ctx: Context, item: MediaItem, canReadLocation: Boolean): GeoPoint? {
-        if (!canReadLocation) return null
+    /** Reads the GPS position (and camera model) stored inside the photo/video. */
+    fun readMeta(ctx: Context, item: MediaItem): Pair<GeoPoint?, String?> {
         val uri = try { MediaStore.setRequireOriginal(item.uri) } catch (e: Exception) { item.uri }
+        var camera: String? = null
         val point: GeoPoint? = try {
             if (!item.isVideo) {
                 ctx.contentResolver.openInputStream(uri)?.use { stream ->
-                    ExifInterface(stream).latLong?.let { GeoPoint(it[0], it[1]) }
+                    val exif = ExifInterface(stream)
+                    camera = cameraName(exif.getAttribute(ExifInterface.TAG_MAKE), exif.getAttribute(ExifInterface.TAG_MODEL))
+                    exif.latLong?.let { GeoPoint(it[0], it[1]) }
                 }
             } else {
                 val r = MediaMetadataRetriever()
@@ -112,7 +119,15 @@ object PlaceReader {
         } catch (e: Exception) {
             null
         }
-        return point?.takeIf { !(it.lat == 0.0 && it.lng == 0.0) }
+        return point?.takeIf { !(it.lat == 0.0 && it.lng == 0.0) } to camera
+    }
+
+    private fun cameraName(make: String?, model: String?): String? {
+        val mk = make?.trim().orEmpty()
+        val md = model?.trim().orEmpty()
+        if (md.isEmpty()) return mk.ifEmpty { null }
+        return if (mk.isEmpty() || md.lowercase().startsWith(mk.lowercase())) md
+        else mk.replaceFirstChar { it.uppercase() } + " " + md
     }
 
     /** Video location looks like "+36.7538+003.0588/" */

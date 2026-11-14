@@ -65,6 +65,7 @@ fun AppRoot(vm: MainViewModel) {
                         is Route.AlbumRoute -> AlbumDetail(pageRoute.bucketId)
                         is Route.CountryRoute -> CountryDetail(pageRoute.country)
                         is Route.SmartRoute -> SmartDetail(pageRoute.kind)
+                        is Route.FilterRoute -> FilterDetail(pageRoute.title, pageRoute.filters)
                         else -> when (nav.tab) {
                             HomeTab.PHOTOS -> BrowseScreen(
                                 title = "Photos", subtitle = null, items = Library.items,
@@ -85,6 +86,8 @@ fun AppRoot(vm: MainViewModel) {
             if (top is Route.ViewerRoute) {
                 ViewerScreen(top.ids, top.start, onClose = { nav.pop() })
             }
+
+            actions.progress?.let { (done, total) -> ProgressDialog(done, total) }
 
             SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 90.dp)) { data ->
                 Snackbar(data, containerColor = Palette.Ink, contentColor = Color.White, shape = RoundedCornerShape(18.dp))

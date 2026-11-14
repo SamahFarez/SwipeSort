@@ -44,6 +44,7 @@ sealed interface Route {
     data class AlbumRoute(val bucketId: Long) : Route
     data class CountryRoute(val country: String) : Route
     data class SmartRoute(val kind: Kind) : Route
+    data class FilterRoute(val title: String, val filters: Filters, val saved: Boolean) : Route
     data class ViewerRoute(val ids: List<Long>, val start: Int) : Route
 }
 
@@ -223,6 +224,7 @@ fun SelectionBar(selected: List<MediaItem>, onClear: () -> Unit) {
     val vm = LocalVm.current
     var moving by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
+    var folderMaker by remember { mutableStateOf(false) }
 
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp)
@@ -241,7 +243,8 @@ fun SelectionBar(selected: List<MediaItem>, onClear: () -> Unit) {
         IconButton(onClick = { selected.forEach { Library.toggleFavorite(ctx, it.id) } }) {
             Icon(Icons.Default.FavoriteBorder, "Favourite", tint = Palette.Ink)
         }
-        IconButton(onClick = { moving = true }) { Icon(Icons.Default.CreateNewFolder, "Move", tint = Palette.BlueDeep) }
+        IconButton(onClick = { folderMaker = true }) { Icon(Icons.Default.CreateNewFolder, "Make folders", tint = Palette.BlueDeep) }
+        IconButton(onClick = { moving = true }) { Icon(Icons.Default.DriveFileMove, "Move", tint = Palette.BlueDeep) }
         IconButton(onClick = { confirmDelete = true }) { Icon(Icons.Default.DeleteOutline, "Delete", tint = Palette.Rose) }
     }
 
@@ -256,6 +259,9 @@ fun SelectionBar(selected: List<MediaItem>, onClear: () -> Unit) {
     }
     if (confirmDelete) {
         ConfirmDeleteDialog(selected.size, onConfirm = { confirmDelete = false; actions.trash(selected, onClear) }, onDismiss = { confirmDelete = false })
+    }
+    if (folderMaker) {
+        FolderMakerSheet(selected, defaultRoot = "", onDismiss = { folderMaker = false }, onFinished = onClear)
     }
 }
 
@@ -287,6 +293,7 @@ fun BrowseScreen(
     defaultGroup: GroupBy,
     onBack: (() -> Unit)?,
     stateKey: String,
+    initialFilters: Filters = Filters(),
     extraActions: @Composable RowScope.() -> Unit = {},
 ) {
     val nav = LocalNav.current
@@ -297,6 +304,9 @@ fun BrowseScreen(
         mutableStateOf(runCatching { GroupBy.valueOf(prefs.getString("group_$stateKey", null) ?: defaultGroup.name) }.getOrDefault(defaultGroup))
     }
     var kind by remember(stateKey) { mutableStateOf(Kind.ALL) }
+    var filters by remember(stateKey) { mutableStateOf(initialFilters) }
+    var filterSheet by remember { mutableStateOf(false) }
+    var folderSheet by remember { mutableStateOf(false) }
     var query by remember(stateKey) { mutableStateOf("") }
     var searching by remember(stateKey) { mutableStateOf(false) }
     var columns by remember { mutableIntStateOf(prefs.getInt("columns", 4)) }
@@ -306,8 +316,9 @@ fun BrowseScreen(
 
     val places = Library.places
     val favorites = Library.favorites
-    val filtered = remember(items, kind, favorites, query, places) {
-        Grouping.search(Grouping.filter(items, kind, favorites), query, places)
+    val cameras = Library.cameras
+    val filtered = remember(items, kind, favorites, query, places, filters, cameras) {
+        Grouping.search(Meta.apply(Grouping.filter(items, kind, favorites), filters, places, cameras), query, places)
     }
     val sections = remember(filtered, group, places) { Grouping.group(filtered, group, places) }
     val headerIdx = remember(sections) { Grouping.headerIndices(sections) }
@@ -322,6 +333,8 @@ fun BrowseScreen(
         } else {
             ScreenTitle(title, subtitle ?: Grouping.countLabel(items), onBack) {
                 extraActions()
+                Spacer(Modifier.width(6.dp))
+                SoftIconButton(Icons.Default.CreateNewFolder, "Make folders", tint = Palette.BlueDeep) { folderSheet = true }
                 Spacer(Modifier.width(6.dp))
                 SoftIconButton(Icons.Default.Search, "Search", tint = if (searching) Palette.PinkDeep else Palette.Ink) {
                     searching = !searching; if (!searching) query = ""
@@ -355,6 +368,12 @@ fun BrowseScreen(
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             item {
+                Chip(
+                    if (filters.isEmpty()) "Filters" else "Filters · ${filters.count}",
+                    selected = !filters.isEmpty(), onClick = { filterSheet = true }, leading = Icons.Default.Tune
+                )
+            }
+            item {
                 Box {
                     Chip("Group: ${group.label}", selected = true, onClick = { groupMenu = true }, leading = Icons.Default.Layers)
                     DropdownMenu(expanded = groupMenu, onDismissRequest = { groupMenu = false }) {
@@ -375,6 +394,28 @@ fun BrowseScreen(
             items(Kind.entries.size) { i ->
                 val k = Kind.entries[i]
                 Chip(k.label, selected = kind == k, onClick = { kind = k })
+            }
+        }
+
+        // active filters, tap to remove
+        val active = remember(filters) { Meta.activeChips(filters) }
+        if (active.isNotEmpty()) {
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 2.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                items(active.size) { i ->
+                    val (label, without) = active[i]
+                    Row(
+                        Modifier.clip(RoundedCornerShape(50)).background(Palette.PinkSoft)
+                            .clickable { filters = without }.padding(start = 10.dp, end = 6.dp, top = 4.dp, bottom = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(label, fontSize = 12.sp, color = Palette.Ink)
+                        Spacer(Modifier.width(4.dp))
+                        Icon(Icons.Default.Close, "Remove", tint = Palette.PinkDeep, modifier = Modifier.size(14.dp))
+                    }
+                }
             }
         }
 
@@ -404,6 +445,7 @@ fun BrowseScreen(
             Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
                 Text(
                     if (kind == Kind.FAVORITES) "No favourites yet.\nTap ♡ on a photo to add it."
+                    else if (!filters.isEmpty()) "Nothing matches these filters."
                     else "Nothing here yet.",
                     color = Palette.InkSoft, fontFamily = DisplayFont, fontSize = 18.sp,
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -412,5 +454,17 @@ fun BrowseScreen(
         } else {
             MediaGrid(sections, gridState, columns, selection, onOpen = { nav.openViewer(flat, it) })
         }
+    }
+
+    if (filterSheet) {
+        FilterSheet(
+            base = remember(items, kind, favorites) { Grouping.filter(items, kind, favorites) },
+            current = filters,
+            onApply = { filters = it; scope.launch { gridState.scrollToItem(0) } },
+            onDismiss = { filterSheet = false }
+        )
+    }
+    if (folderSheet) {
+        FolderMakerSheet(filtered, defaultRoot = if (onBack == null) "" else title, onDismiss = { folderSheet = false })
     }
 }

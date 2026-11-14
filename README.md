@@ -10,3 +10,8 @@ A pastel gallery app for Android 11+.
 - **Select mode**: long-press any photo (or "Select" on a section) to share, send to Instagram, favourite, move or delete many at once.
 
 Albums are real folders (Pictures/<name>), so they also appear in your system gallery and in Instagram's / CapCut's folder picker.
+
+## 3.1: metadata filters & folders
+- **Filters** (any screen): year, month, time of day, country, village, has/no location, album, shape (portrait, landscape, square, Reels 9:16, panorama), video length, where it came from (Camera, Screenshots, WhatsApp, Instagram, Snapchat, Downloads, CapCut…), camera/phone model (EXIF).
+- **Smart albums**: save any filter combo as a smart album (Albums tab). Built-in: Screenshots, WhatsApp, Panoramas, Night shots, Short clips, Long videos. Long-press a saved one to delete it.
+- **Make folders**: turn any view or selection into real nested folders (by country, country › village, year › month, month, country › month, album › country, or one folder). Copy (keeps originals) or move.

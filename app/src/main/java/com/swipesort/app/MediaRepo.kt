@@ -183,6 +183,37 @@ object MediaRepo {
 
     fun newAlbumPath(name: String): String = "Pictures/${name.trim()}/"
 
+    /** Copies a file into another folder. The original stays where it is. No permission pop-up needed. */
+    fun copy(ctx: Context, item: MediaItem, relativePath: String): Boolean {
+        val resolver = ctx.contentResolver
+        val collection = if (item.isVideo) MediaStore.Video.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+        else MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+        val values = ContentValues().apply {
+            put(MediaStore.MediaColumns.DISPLAY_NAME, item.name)
+            put(MediaStore.MediaColumns.MIME_TYPE, resolver.getType(item.uri) ?: if (item.isVideo) "video/mp4" else "image/jpeg")
+            put(MediaStore.MediaColumns.RELATIVE_PATH, relativePath)
+            put(MediaStore.MediaColumns.IS_PENDING, 1)
+        }
+        val newUri = try { resolver.insert(collection, values) } catch (e: Exception) { null } ?: return false
+        return try {
+            // read the original so the GPS location is kept in the copy
+            val src = if (hasLocationPermission(ctx)) {
+                try { MediaStore.setRequireOriginal(item.uri) } catch (e: Exception) { item.uri }
+            } else item.uri
+            resolver.openInputStream(src).use { input ->
+                resolver.openOutputStream(newUri).use { output ->
+                    if (input == null || output == null) error("Cannot open file")
+                    input.copyTo(output)
+                }
+            }
+            resolver.update(newUri, ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 0) }, null, null)
+            true
+        } catch (e: Exception) {
+            runCatching { resolver.delete(newUri, null, null) }
+            false
+        }
+    }
+
     /** Share to Instagram directly if installed, otherwise the normal share sheet. */
     fun share(ctx: Context, items: List<MediaItem>, instagram: Boolean) {
         if (items.isEmpty()) return

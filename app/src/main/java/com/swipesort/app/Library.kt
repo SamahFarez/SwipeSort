@@ -47,9 +47,14 @@ object Library {
     var favorites by mutableStateOf<Set<Long>>(emptySet())
         private set
 
+    /** item id -> camera / phone model (from EXIF). */
+    var cameras by mutableStateOf<Map<Long, String>>(emptyMap())
+        private set
+
     fun refresh(ctx: Context) {
         val app = ctx.applicationContext
         if (favorites.isEmpty()) loadFavorites(app)
+        Presets.load(app)
         refreshJob?.cancel()
         refreshJob = scope.launch {
             loading = !loadedOnce
@@ -91,16 +96,19 @@ object Library {
 
             fun publish() {
                 val map = HashMap<Long, Place>()
+                val cams = HashMap<Long, String>()
                 var unnamed = 0
                 val unnamedKeys = HashSet<String>()
                 for (item in snapshot) {
-                    val p = locs[item.id]?.point ?: continue
+                    val loc = locs[item.id] ?: continue
+                    loc.camera?.let { cams[item.id] = it }
+                    val p = loc.point ?: continue
                     val k = PlaceReader.key(p)
                     val place = geo[k]
                     if (place != null) map[item.id] = place
                     else if (unnamedKeys.add(k)) unnamed++
                 }
-                scope.launch { places = map; unnamedSpots = unnamed }
+                scope.launch { places = map; cameras = cams; unnamedSpots = unnamed }
             }
 
             publish()
@@ -108,12 +116,13 @@ object Library {
             // 1) read GPS from files we haven't looked at yet
             val todo = if (canRead) snapshot.filter { locs[it.id]?.modified != it.dateModified } else emptyList()
             withContext(Dispatchers.Main) { indexing = todo.isNotEmpty(); indexDone = 0; indexTotal = todo.size }
-            val batch = ArrayList<Triple<Long, Long, GeoPoint?>>()
+            val batch = ArrayList<Pair<Long, PlaceDb.Loc>>()
             todo.forEachIndexed { i, item ->
                 if (!isActive) return@launch
-                val p = PlaceReader.readPoint(ctx, item, true)
-                locs[item.id] = PlaceDb.Loc(item.dateModified, p)
-                batch += Triple(item.id, item.dateModified, p)
+                val (p, camera) = PlaceReader.readMeta(ctx, item)
+                val loc = PlaceDb.Loc(item.dateModified, p, camera)
+                locs[item.id] = loc
+                batch += item.id to loc
                 if (batch.size >= 100 || i == todo.lastIndex) {
                     database.putLocs(batch); batch.clear()
                     val done = i + 1
