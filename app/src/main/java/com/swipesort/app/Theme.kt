@@ -60,6 +60,7 @@ fun AppTheme(content: @Composable () -> Unit) {
         surfaceVariant = Palette.Lilac,
         onSurfaceVariant = Palette.InkSoft,
         surfaceContainerHigh = Color.White,
+        surfaceContainer = Color.White,
         outline = Palette.InkSoft,
     )
     MaterialTheme(colorScheme = scheme, content = content)

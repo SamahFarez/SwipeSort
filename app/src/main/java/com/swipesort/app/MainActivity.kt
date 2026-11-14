@@ -21,10 +21,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             AppTheme {
                 GradientBackground {
-                    when (vm.screen) {
-                        Screen.SETUP -> SetupScreen(vm)
-                        Screen.SWIPE -> SwipeScreen(vm)
-                    }
+                    AppRoot(vm)
                 }
             }
         }

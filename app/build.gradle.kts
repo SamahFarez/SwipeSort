@@ -12,8 +12,8 @@ android {
         applicationId = "com.swipesort.app"
         minSdk = 30          // Android 11+
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 3
+        versionName = "3.0"
     }
 
     buildTypes {
@@ -45,4 +45,5 @@ dependencies {
     implementation("androidx.core:core-ktx:1.15.0")
     implementation("io.coil-kt:coil-compose:2.7.0")
     implementation("io.coil-kt:coil-video:2.7.0")
+    implementation("androidx.exifinterface:exifinterface:1.3.7")
 }

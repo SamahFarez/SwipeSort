@@ -7,10 +7,18 @@
         android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+    <!-- Read where photos were taken (GPS inside the file) to sort by country / village -->
+    <uses-permission android:name="android.permission.ACCESS_MEDIA_LOCATION" />
+    <!-- Turn GPS positions into place names -->
+    <uses-permission android:name="android.permission.INTERNET" />
     <!-- Lets the app move/trash media without a confirmation pop-up (Android 12+, user grants it in Settings) -->
     <uses-permission
         android:name="android.permission.MANAGE_MEDIA"
         tools:ignore="ProtectedPermissions" />
+
+    <queries>
+        <package android:name="com.instagram.android" />
+    </queries>
 
     <application
         android:name=".SwipeSortApp"

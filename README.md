@@ -1,35 +1,12 @@
-# SwipeSort
+# SwipeSort 3.0
 
-Sort an album by swiping, one photo or video at a time.
+A pastel gallery app for Android 11+.
 
-| Gesture | What happens |
-|---|---|
-| Swipe **left** | Moves the item to your "left" album (e.g. *Moments*) |
-| Swipe **right** | Moves the item to your "right" album (e.g. *ContentVids*) |
-| Swipe **up** | Deletes it (sent to the phone's Trash, recoverable for 30 days) |
-| Swipe **down** | Skip, so it stays where it is |
-| ↶ button | Undo the last swipe |
+- **Photos**: your whole library as a timeline. Group by month, day, year, country, village, country + month, or album. Jump bar to go straight to any month or place. Search by country, village, album or month. Filters: Photos, Videos, Reels 9:16, Favourites.
+- **Albums**: every folder on your phone, plus Favourites / Videos / Reels-ready collections. Inside any album (e.g. Moments) you can regroup by country, village or month.
+- **Places**: countries (from the GPS saved in each photo), then villages / cities inside each country. Inside a country you can group by album (e.g. Algeria → Moments, ContentVids).
+- **Organize**: the swiper (left / right = move to album, up = Trash, down = skip).
+- **Viewer**: swipe between items, double-tap to zoom, videos play, info (date, place, size, aspect ratio), share, one-tap Instagram, favourite, move, delete.
+- **Select mode**: long-press any photo (or "Select" on a section) to share, send to Instagram, favourite, move or delete many at once.
 
-Requires Android 11 or newer.
-
-## Using it
-1. Pick the **album to sort** (you can filter to Videos only or Photos only).
-2. Pick the **left** and **right** albums. Choose any existing album, or tap **Create new album**
-   (it's made in `Pictures/<name>` the first time something is moved there). Use ⇄ to swap sides.
-   Change them any time you like; the app remembers your last choice.
-3. Tap **Start sorting** and swipe.
-
-Swipes are saved to your gallery in batches (every 25 swipes, when you tap **Apply**, or when you finish).
-Until then you can undo them.
-
-**Fast mode (recommended):** On the setup screen tap *Open settings* and allow **Media management**
-for SwipeSort. Otherwise Android shows a confirmation pop-up for every batch.
-
-## Getting the APK (no computer needed)
-1. Create a new repository on github.com and upload all these files (keep the folder structure,
-   including the hidden `.github` folder).
-2. GitHub builds the app automatically (Actions tab, about 4–5 minutes).
-3. Open the repo's **Releases** page on your phone, download `SwipeSort.apk`, and install it
-   (allow "install unknown apps" for your browser when asked).
-
-Or open the folder in Android Studio and press Run.
+Albums are real folders (Pictures/<name>), so they also appear in your system gallery and in Instagram's / CapCut's folder picker.

@@ -74,7 +74,7 @@ fun SetupScreen(vm: MainViewModel) {
     val sourceCount = vm.sourceItems().size
 
     LazyColumn(
-        Modifier.fillMaxSize().systemBarsPadding(),
+        Modifier.fillMaxSize(),
         contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
@@ -348,7 +348,7 @@ private fun AlbumPickerDialog(
 }
 
 @Composable
-private fun TargetPickerDialog(
+fun TargetPickerDialog(
     title: String,
     targets: List<Target>,
     onPick: (Target?) -> Unit,

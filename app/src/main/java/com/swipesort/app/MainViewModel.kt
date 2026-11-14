@@ -29,11 +29,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     // ---------- setup state ----------
     var screen by mutableStateOf(Screen.SETUP)
-    var loading by mutableStateOf(false)
+    val nav = NavState()
+    val loading: Boolean get() = Library.loading
     var hasPermission by mutableStateOf(MediaRepo.hasReadPermission(app))
     var canManageMedia by mutableStateOf(MediaRepo.canManageMedia(app))
-    var allItems by mutableStateOf<List<MediaItem>>(emptyList())
-    var albums by mutableStateOf<List<Album>>(emptyList())
+    val allItems: List<MediaItem> get() = Library.items
+    val albums: List<Album> get() = Library.albums
     var customAlbums by mutableStateOf(loadCustomAlbums())
 
     var sourceBucket by mutableStateOf(
@@ -63,7 +64,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val next: MediaItem? get() = queue.getOrNull(index + 1)
     val pendingCount: Int get() = history.count { it.type != ActionType.SKIP }
 
-    private val autoApplyEvery = 25
+    /** In fast mode changes are saved every few swipes, otherwise in bigger batches (fewer pop-ups). */
+    private val autoApplyEvery: Int get() = if (canManageMedia) 5 else 25
 
     init {
         if (hasPermission) refresh()
@@ -76,13 +78,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun refresh() {
-        viewModelScope.launch {
-            loading = albums.isEmpty()
-            val items = withContext(Dispatchers.IO) { MediaRepo.loadAll(ctx) }
-            allItems = items
-            albums = MediaRepo.albumsFrom(items)
-            loading = false
-        }
+        Library.refresh(ctx)
     }
 
     // ---------- album targets ----------
