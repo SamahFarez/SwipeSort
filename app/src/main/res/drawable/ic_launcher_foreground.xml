@@ -5,19 +5,19 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
     <!-- back card -->
-    <path
-        android:fillColor="#66FFFFFF"
-        android:pathData="M40,34h30a4,4 0,0 1,4 4v36a4,4 0,0 1,-4 4h-30a4,4 0,0 1,-4 -4v-36a4,4 0,0 1,4 -4z" />
-    <!-- front card, tilted -->
-    <group android:pivotX="54" android:pivotY="56" android:rotation="-12">
+    <group android:pivotX="54" android:pivotY="56" android:rotation="10">
+        <path
+            android:fillColor="#80FFFFFF"
+            android:pathData="M41,33h26a5,5 0,0 1,5 5v34a5,5 0,0 1,-5 5h-26a5,5 0,0 1,-5 -5v-34a5,5 0,0 1,5 -5z" />
+    </group>
+    <!-- front card -->
+    <group android:pivotX="54" android:pivotY="56" android:rotation="-8">
         <path
             android:fillColor="#FFFFFFFF"
-            android:pathData="M38,32h30a4,4 0,0 1,4 4v36a4,4 0,0 1,-4 4h-30a4,4 0,0 1,-4 -4v-36a4,4 0,0 1,4 -4z" />
+            android:pathData="M41,33h26a5,5 0,0 1,5 5v34a5,5 0,0 1,-5 5h-26a5,5 0,0 1,-5 -5v-34a5,5 0,0 1,5 -5z" />
+        <!-- little heart -->
         <path
-            android:fillColor="#FF6A5AE0"
-            android:pathData="M42,66l8,-11 6,8 4,-5 8,8z" />
-        <path
-            android:fillColor="#FFE0507A"
-            android:pathData="M60,44m-4,0a4,4 0,1 1,8 0a4,4 0,1 1,-8 0" />
+            android:fillColor="#FFEC6FA9"
+            android:pathData="M54,64 C46,58 44,54 44,50.5 C44,47.5 46.3,45.5 49,45.5 C51,45.5 52.8,46.6 54,48.4 C55.2,46.6 57,45.5 59,45.5 C61.7,45.5 64,47.5 64,50.5 C64,54 62,58 54,64 Z" />
     </group>
 </vector>

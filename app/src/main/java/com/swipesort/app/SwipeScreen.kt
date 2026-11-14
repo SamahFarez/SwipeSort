@@ -9,64 +9,30 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.VectorConverter
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.background
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.*
 import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.PlayCircle
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.FilledTonalIconButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
@@ -80,11 +46,6 @@ import coil.compose.AsyncImage
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 
-private val LeftColor = Color(0xFF4FC3F7)
-private val RightColor = Color(0xFF81C784)
-private val DeleteColor = Color(0xFFE57373)
-
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SwipeScreen(vm: MainViewModel) {
     val snackbar = remember { SnackbarHostState() }
@@ -113,114 +74,148 @@ fun SwipeScreen(vm: MainViewModel) {
     val done = item == null
     val busy = vm.commitStage != CommitStage.IDLE
 
-    Scaffold(
-        snackbarHost = { SnackbarHost(snackbar) },
-        topBar = {
-            TopAppBar(
-                navigationIcon = {
-                    IconButton(onClick = { if (vm.pendingCount > 0) confirmExit = true else vm.leaveSession() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
+    Box(Modifier.fillMaxSize().systemBarsPadding()) {
+        Column(Modifier.fillMaxSize()) {
+            TopBar(vm, done, busy, onBack = { if (vm.pendingCount > 0) confirmExit = true else vm.leaveSession() })
+
+            Box(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 18.dp, vertical = 10.dp)) {
+                if (done) {
+                    DoneView(vm)
+                } else {
+                    // Next card peeking underneath
+                    vm.next?.let { nxt ->
+                        Box(
+                            Modifier.fillMaxSize().scale(0.93f).offset(y = 14.dp)
+                                .clip(RoundedCornerShape(34.dp))
+                                .background(Color.White.copy(alpha = 0.6f))
+                                .padding(6.dp)
+                                .clip(RoundedCornerShape(28.dp))
+                                .background(Palette.MediaBg)
+                        ) {
+                            AsyncImage(nxt.uri, null, Modifier.fillMaxSize().alpha(0.45f), contentScale = ContentScale.Crop)
+                        }
                     }
-                },
-                title = {
-                    Text(
-                        if (done) "Done" else "${vm.index + 1} / ${vm.queue.size}",
-                        fontWeight = FontWeight.Bold
+                    SwipeCard(
+                        item = item!!,
+                        muted = vm.muted,
+                        leftName = vm.left?.name,
+                        rightName = vm.right?.name,
+                        enabled = !busy,
+                        onSwiped = vm::onSwipe,
                     )
-                },
-                actions = {
-                    if (item?.isVideo == true) {
-                        IconButton(onClick = vm::toggleMute) {
-                            Icon(
-                                if (vm.muted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp,
-                                "Mute"
-                            )
-                        }
-                    }
-                    if (vm.pendingCount > 0) {
-                        TextButton(onClick = { vm.startCommit() }, enabled = !busy) {
-                            Icon(Icons.Default.Check, null)
-                            Text(" Apply ${vm.pendingCount}")
-                        }
-                    }
                 }
-            )
-        },
-        bottomBar = {
+            }
+
             if (!done) ActionBar(vm, enabled = !busy)
         }
-    ) { pad ->
-        Box(Modifier.fillMaxSize().padding(pad).padding(12.dp)) {
-            if (done) {
-                DoneView(vm)
-            } else {
-                // Card underneath (next item preview)
-                vm.next?.let { nxt ->
-                    Box(
-                        Modifier.fillMaxSize().scale(0.94f).clip(RoundedCornerShape(24.dp)).background(Color.Black)
-                    ) {
-                        AsyncImage(nxt.uri, null, Modifier.fillMaxSize().alpha(0.5f), contentScale = ContentScale.Fit)
-                    }
-                }
-                SwipeCard(
-                    item = item!!,
-                    muted = vm.muted,
-                    leftName = vm.left?.name,
-                    rightName = vm.right?.name,
-                    enabled = !busy,
-                    onSwiped = vm::onSwipe,
-                )
-            }
+        SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(bottom = 90.dp)) { data ->
+            Snackbar(data, containerColor = Palette.Ink, contentColor = Color.White, shape = RoundedCornerShape(18.dp))
         }
     }
 
     if (confirmExit) {
         AlertDialog(
             onDismissRequest = { confirmExit = false },
-            title = { Text("Apply ${vm.pendingCount} changes?") },
-            text = { Text("You have swipes that haven't been saved to your gallery yet.") },
+            containerColor = Color.White,
+            shape = RoundedCornerShape(30.dp),
+            title = { Text("Save ${vm.pendingCount} changes?", fontFamily = DisplayFont, color = Palette.Ink) },
+            text = { Text("Some swipes haven't been applied to your gallery yet.", color = Palette.InkSoft) },
             confirmButton = {
-                TextButton(onClick = { confirmExit = false; vm.startCommit(exit = true) }) { Text("Apply & exit") }
+                TextButton(onClick = { confirmExit = false; vm.startCommit(exit = true) }) {
+                    Text("Save & exit", color = Palette.PinkDeep, fontWeight = FontWeight.SemiBold)
+                }
             },
             dismissButton = {
                 Row {
-                    TextButton(onClick = { confirmExit = false; vm.leaveSession() }) { Text("Discard") }
-                    TextButton(onClick = { confirmExit = false }) { Text("Cancel") }
+                    TextButton(onClick = { confirmExit = false; vm.leaveSession() }) { Text("Discard", color = Palette.Rose) }
+                    TextButton(onClick = { confirmExit = false }) { Text("Cancel", color = Palette.InkSoft) }
                 }
             }
         )
     }
 }
 
-/** Triggers the same fly-away animation as a swipe when a button is tapped. */
+@Composable
+private fun TopBar(vm: MainViewModel, done: Boolean, busy: Boolean, onBack: () -> Unit) {
+    Column(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            GlassCircleButton(onClick = onBack, size = 44.dp) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = Palette.Ink, modifier = Modifier.size(20.dp))
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    if (done) "All done" else "${vm.index + 1} of ${vm.queue.size}",
+                    fontFamily = DisplayFont, fontSize = 22.sp, color = Palette.Ink
+                )
+                vm.queue.firstOrNull()?.let {
+                    Text(it.bucketName, fontSize = 12.sp, color = Palette.InkSoft, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
+            if (vm.current?.isVideo == true) {
+                GlassCircleButton(onClick = vm::toggleMute, size = 44.dp) {
+                    Icon(
+                        if (vm.muted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp,
+                        "Mute", tint = Palette.Ink, modifier = Modifier.size(20.dp)
+                    )
+                }
+                Spacer(Modifier.width(8.dp))
+            }
+            if (vm.pendingCount > 0) {
+                GradientButton(
+                    text = if (busy) "Saving…" else "Save ${vm.pendingCount}",
+                    onClick = { vm.startCommit() },
+                    enabled = !busy,
+                    height = 40.dp
+                )
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+        // progress
+        val total = vm.queue.size.coerceAtLeast(1)
+        val progress by animateFloatAsState((vm.index.toFloat() / total).coerceIn(0f, 1f), label = "progress")
+        Box(Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.7f))) {
+            Box(Modifier.fillMaxWidth(progress).fillMaxHeight().clip(RoundedCornerShape(50)).background(BrandGradientDeep))
+        }
+    }
+}
+
+/** Lets the bottom buttons trigger the same fly-away animation as a swipe. */
 private class ButtonTrigger { var fire by mutableStateOf<ActionType?>(null) }
 private val trigger = ButtonTrigger()
 
 @Composable
 private fun ActionBar(vm: MainViewModel, enabled: Boolean) {
     Row(
-        Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 12.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.SpaceEvenly,
+        Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 14.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        SideButton("← ${vm.left?.name ?: "—"}", LeftColor, enabled && vm.left != null) { trigger.fire = ActionType.LEFT }
-        FilledTonalIconButton(onClick = vm::undo, enabled = enabled && vm.history.isNotEmpty()) {
-            Icon(Icons.AutoMirrored.Filled.Undo, "Undo")
+        GradientButton(
+            text = "← ${vm.left?.name ?: "—"}",
+            onClick = { trigger.fire = ActionType.LEFT },
+            enabled = enabled && vm.left != null,
+            brush = Brush.linearGradient(listOf(Palette.BlueDeep, Palette.Blue)),
+            modifier = Modifier.weight(1f),
+            height = 52.dp
+        )
+        GlassCircleButton(onClick = vm::undo, enabled = enabled && vm.history.isNotEmpty(), size = 46.dp) {
+            Icon(Icons.AutoMirrored.Filled.Undo, "Undo", tint = Palette.InkSoft, modifier = Modifier.size(20.dp))
         }
-        FilledTonalIconButton(onClick = { trigger.fire = ActionType.SKIP }, enabled = enabled) {
-            Icon(Icons.Default.KeyboardArrowDown, "Skip")
+        GlassCircleButton(onClick = { trigger.fire = ActionType.SKIP }, enabled = enabled, size = 46.dp) {
+            Icon(Icons.Default.KeyboardArrowDown, "Skip", tint = Palette.InkSoft)
         }
-        FilledTonalIconButton(onClick = { trigger.fire = ActionType.DELETE }, enabled = enabled) {
-            Icon(Icons.Default.Delete, "Delete", tint = DeleteColor)
+        GlassCircleButton(onClick = { trigger.fire = ActionType.DELETE }, enabled = enabled, size = 46.dp) {
+            Icon(Icons.Default.DeleteOutline, "Delete", tint = Palette.Rose, modifier = Modifier.size(22.dp))
         }
-        SideButton("${vm.right?.name ?: "—"} →", RightColor, enabled && vm.right != null) { trigger.fire = ActionType.RIGHT }
-    }
-}
-
-@Composable
-private fun SideButton(text: String, color: Color, enabled: Boolean, onClick: () -> Unit) {
-    FilledTonalButton(onClick = onClick, enabled = enabled, modifier = Modifier.widthIn(max = 120.dp)) {
-        Text(text, color = if (enabled) color else Color.Unspecified, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 13.sp)
+        GradientButton(
+            text = "${vm.right?.name ?: "—"} →",
+            onClick = { trigger.fire = ActionType.RIGHT },
+            enabled = enabled && vm.right != null,
+            brush = Brush.linearGradient(listOf(Palette.Pink, Palette.PinkDeep)),
+            modifier = Modifier.weight(1f),
+            height = 52.dp
+        )
     }
 }
 
@@ -236,6 +231,7 @@ private fun SwipeCard(
     val scope = rememberCoroutineScope()
     val offset = remember(item.id) { Animatable(Offset.Zero, Offset.VectorConverter) }
     val currentOnSwiped by rememberUpdatedState(onSwiped)
+    val outer = RoundedCornerShape(34.dp)
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val w = constraints.maxWidth.toFloat()
@@ -259,7 +255,7 @@ private fun SwipeCard(
                 ActionType.DELETE -> Offset(o.x, -h * 1.6f)
                 ActionType.SKIP -> Offset(o.x, h * 1.6f)
             }
-            offset.animateTo(dest, tween(200))
+            offset.animateTo(dest, tween(220, easing = FastOutLinearInEasing))
             currentOnSwiped(type)
         }
 
@@ -270,40 +266,55 @@ private fun SwipeCard(
             if (enabled) flyAway(t)
         }
 
-        // The card itself
+        val o = offset.value
+        val horiz = abs(o.x) >= abs(o.y)
+        val leftStrength = if (horiz && o.x < 0 && leftName != null) (-o.x / xThreshold).coerceIn(0f, 1f) else 0f
+        val rightStrength = if (horiz && o.x > 0 && rightName != null) (o.x / xThreshold).coerceIn(0f, 1f) else 0f
+        val deleteStrength = if (!horiz && o.y < 0) (-o.y / yThreshold).coerceIn(0f, 1f) else 0f
+        val skipStrength = if (!horiz && o.y > 0) (o.y / yThreshold).coerceIn(0f, 1f) else 0f
+
+        // The card: white frame around the media
         Box(
             Modifier
                 .fillMaxSize()
                 .graphicsLayer {
-                    translationX = offset.value.x
-                    translationY = offset.value.y
-                    rotationZ = (offset.value.x / w) * 12f
+                    translationX = o.x
+                    translationY = o.y
+                    rotationZ = (o.x / w) * 12f
                 }
-                .clip(RoundedCornerShape(24.dp))
-                .background(Color.Black)
+                .shadow(18.dp, outer, ambientColor = Palette.PinkDeep, spotColor = Palette.BlueDeep)
+                .clip(outer)
+                .background(Color.White)
+                .padding(6.dp)
+                .clip(RoundedCornerShape(28.dp))
+                .background(Palette.MediaBg)
         ) {
             key(item.id) { MediaView(item, muted) }
 
-            // Info strip
+            // colour wash while dragging
+            val wash = when {
+                leftStrength > 0f -> Palette.BlueDeep.copy(alpha = 0.28f * leftStrength)
+                rightStrength > 0f -> Palette.PinkDeep.copy(alpha = 0.28f * rightStrength)
+                deleteStrength > 0f -> Palette.Rose.copy(alpha = 0.30f * deleteStrength)
+                else -> Color.Transparent
+            }
+            Box(Modifier.matchParentSize().background(wash))
+
+            // Info strip with soft fade
             Column(
                 Modifier.align(Alignment.BottomStart).fillMaxWidth()
-                    .background(Color.Black.copy(alpha = 0.45f)).padding(12.dp)
+                    .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.55f))))
+                    .padding(start = 18.dp, end = 18.dp, top = 28.dp, bottom = 16.dp)
             ) {
-                Text(item.name, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.SemiBold)
-                Text("in ${item.bucketName}", color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp)
+                Text(item.name, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    fontWeight = FontWeight.Medium, fontSize = 15.sp)
+                Text(if (item.isVideo) "Video" else "Photo", color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp)
             }
 
-            // Swipe hint overlays
-            val o = offset.value
-            val horiz = abs(o.x) >= abs(o.y)
-            if (horiz && o.x < 0 && leftName != null)
-                Hint("← $leftName", LeftColor, (-o.x / xThreshold).coerceIn(0f, 1f), Alignment.TopEnd)
-            if (horiz && o.x > 0 && rightName != null)
-                Hint("$rightName →", RightColor, (o.x / xThreshold).coerceIn(0f, 1f), Alignment.TopStart)
-            if (!horiz && o.y < 0)
-                Hint("DELETE", DeleteColor, (-o.y / yThreshold).coerceIn(0f, 1f), Alignment.BottomCenter)
-            if (!horiz && o.y > 0)
-                Hint("SKIP", Color.White, (o.y / yThreshold).coerceIn(0f, 1f), Alignment.TopCenter)
+            Hint("${leftName ?: ""}", Palette.BlueDeep, leftStrength, Alignment.TopEnd)
+            Hint("${rightName ?: ""}", Palette.PinkDeep, rightStrength, Alignment.TopStart)
+            Hint("Delete", Palette.Rose, deleteStrength, Alignment.BottomCenter)
+            Hint("Skip", Palette.InkSoft, skipStrength, Alignment.TopCenter)
         }
 
         // Transparent gesture layer on top (so the video view can't steal the touches)
@@ -314,7 +325,7 @@ private fun SwipeCard(
                     onDragEnd = {
                         scope.launch {
                             val type = classify(offset.value)
-                            if (type == null) offset.animateTo(Offset.Zero, spring(dampingRatio = 0.6f))
+                            if (type == null) offset.animateTo(Offset.Zero, spring(dampingRatio = 0.6f, stiffness = 400f))
                             else flyAway(type)
                         }
                     },
@@ -329,14 +340,17 @@ private fun SwipeCard(
 }
 
 @Composable
-private fun androidx.compose.foundation.layout.BoxScope.Hint(text: String, color: Color, strength: Float, align: Alignment) {
+private fun BoxScope.Hint(text: String, color: Color, strength: Float, align: Alignment) {
     if (strength <= 0.05f) return
     Box(
-        Modifier.align(align).padding(24.dp).alpha(strength)
-            .background(color.copy(alpha = 0.9f), RoundedCornerShape(12.dp))
-            .padding(horizontal = 16.dp, vertical = 8.dp)
+        Modifier.align(align).padding(28.dp).alpha(strength).scale(0.8f + 0.2f * strength)
+            .shadow(8.dp, RoundedCornerShape(50))
+            .clip(RoundedCornerShape(50))
+            .background(Color.White)
+            .padding(horizontal = 20.dp, vertical = 10.dp)
     ) {
-        Text(text, color = Color.Black, fontWeight = FontWeight.ExtraBold, fontSize = 20.sp, maxLines = 1)
+        Text(text, color = color, fontWeight = FontWeight.SemiBold, fontSize = 18.sp, maxLines = 1,
+            fontFamily = DisplayFont)
     }
 }
 
@@ -383,11 +397,12 @@ private fun MediaView(item: MediaItem, muted: Boolean) {
         if (player == null) {
             // Thumbnail while the video loads (or if it can't play)
             AsyncImage(item.uri, null, Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
-            Icon(
-                Icons.Default.PlayCircle, null,
-                Modifier.align(Alignment.Center).size(64.dp).alpha(if (failed) 1f else 0.6f),
-                tint = Color.White
-            )
+            Box(
+                Modifier.align(Alignment.Center).size(64.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.85f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.Default.PlayArrow, null, tint = if (failed) Palette.Rose else Palette.PinkDeep, modifier = Modifier.size(34.dp))
+            }
         }
     }
     LaunchedEffect(muted, player) {
@@ -402,20 +417,39 @@ private fun DoneView(vm: MainViewModel) {
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text("🎉", fontSize = 64.sp)
-        Spacer(Modifier.height(12.dp))
-        Text("Album sorted!", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(16.dp))
-        vm.left?.let { Text("${vm.doneLeft} → ${it.name}", color = LeftColor) }
-        vm.right?.let { Text("${vm.doneRight} → ${it.name}", color = RightColor) }
-        Text("${vm.doneDeleted} moved to Trash", color = DeleteColor)
-        if (vm.pendingCount > 0) {
-            Spacer(Modifier.height(8.dp))
-            Text("${vm.pendingCount} change(s) still pending", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(Modifier.height(8.dp))
-            Button(onClick = { vm.startCommit() }) { Text("Apply now") }
+        GlassCard(Modifier.fillMaxWidth()) {
+            Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("✨", fontSize = 48.sp)
+                Spacer(Modifier.height(8.dp))
+                Text("Beautifully sorted", fontFamily = DisplayFont, fontSize = 28.sp, color = Palette.Ink)
+                Spacer(Modifier.height(20.dp))
+                vm.left?.let { StatRow(it.name, vm.doneLeft, Palette.BlueDeep, Palette.BlueSoft) }
+                vm.right?.let { StatRow(it.name, vm.doneRight, Palette.PinkDeep, Palette.PinkSoft) }
+                StatRow("Trash", vm.doneDeleted, Palette.Rose, Palette.Rose.copy(alpha = 0.12f))
+                if (vm.pendingCount > 0) {
+                    Spacer(Modifier.height(10.dp))
+                    Text("${vm.pendingCount} change(s) not saved yet", color = Palette.InkSoft, fontSize = 13.sp)
+                    Spacer(Modifier.height(10.dp))
+                    GradientButton("Save now", { vm.startCommit() }, Modifier.fillMaxWidth())
+                }
+                Spacer(Modifier.height(14.dp))
+                GradientButton(
+                    "Back to albums", { vm.startCommit(exit = true) }, Modifier.fillMaxWidth(),
+                    brush = Brush.linearGradient(listOf(Palette.Blue, Palette.Pink))
+                )
+            }
         }
-        Spacer(Modifier.height(24.dp))
-        Button(onClick = { vm.startCommit(exit = true) }) { Text("Back to albums") }
+    }
+}
+
+@Composable
+private fun StatRow(name: String, count: Int, color: Color, soft: Color) {
+    Row(
+        Modifier.fillMaxWidth().padding(vertical = 4.dp).clip(RoundedCornerShape(16.dp)).background(soft)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(name, Modifier.weight(1f), color = Palette.Ink, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text("$count", color = color, fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
     }
 }
