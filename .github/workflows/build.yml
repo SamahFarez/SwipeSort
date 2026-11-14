@@ -27,7 +27,12 @@ jobs:
           echo "Building in $(pwd)"
           gradle assembleDebug --no-daemon --stacktrace
           cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/SwipeSort.apk"
-      - name: Publish
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SwipeSort-apk
+          path: SwipeSort.apk
+      - name: Publish release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh release create "build-${{ github.run_number }}" SwipeSort.apk --title "SwipeSort ${{ github.run_number }}" --notes "Tap SwipeSort.apk to download"
